@@ -1,0 +1,50 @@
+# ==========================
+# Template: M&A Zölle Analyse
+# ==========================
+
+import pandas as pd
+import statsmodels.formula.api as smf
+import matplotlib.pyplot as plt
+
+# 1. Daten laden ---------------------------------------------------------
+# Erwartetes Datenformat (CSV/Excel):
+# Jahr | Branche | DealCount | DealValue | Treat (0/1)
+# Treat = 1 für zoll-exponierte Branchen, 0 sonst
+
+df = pd.read_csv("ma_zollanalyse_beispieldaten.csv")
+
+# 2. Zeitperioden definieren ---------------------------------------------
+# Post = 1 für alle Beobachtungen nach Einführung der Zölle (z.B. Juli 2018)
+df["Post"] = (df["Jahr"] >= 2019).astype(int)
+
+# 3. Interaktion für Difference-in-Differences ----------------------------
+df["Post_Treat"] = df["Post"] * df["Treat"]
+
+# 4. Difference-in-Differences Regression ---------------------------------
+# Modell für Deal Count
+model_count = smf.ols('DealCount ~ Post + Treat + Post_Treat', data=df).fit()
+print(model_count.summary())
+
+# Modell für Deal Value
+model_value = smf.ols('DealValue ~ Post + Treat + Post_Treat', data=df).fit()
+print(model_value.summary())
+
+# 5. Visualisierung -------------------------------------------------------
+plt.figure(figsize=(8,5))
+for treat, label in zip([1, 0], ["Zoll-exponiert", "Nicht-exponiert"]):
+    subset = df[df["Treat"] == treat]
+    plt.plot(subset["Jahr"], subset["DealCount"], marker='o', label=label)
+
+plt.axvline(x=2018.5, color='gray', linestyle='--', label="US-Zölle 2018")
+plt.title("Deal Count vor/nach US-Zöllen")
+plt.xlabel("Jahr")
+plt.ylabel("Deal Count")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# 6. Optional: Kontrollvariablen ergänzen ---------------------------------
+# Beispiel mit BIP-Wachstum als Kontrolle:
+# model_count = smf.ols('DealCount ~ Post + Treat + Post_Treat + BIP_Wachstum', data=df).fit()
+# print(model_count.summary())
